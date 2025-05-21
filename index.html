@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Wheel Spinner</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; }
+        #wheelCanvas { border: 2px solid #333; margin: 20px auto; display: block; }
+        .thing-row { margin-bottom: 5px; }
+        .thing-input { width: 180px; }
+        .weight-input { width: 60px; }
+        #addThingBtn { margin-bottom: 10px; }
+        #spinBtn { padding: 10px 20px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h1>Wheel Spinner</h1>
+    <div id="thingsContainer"></div>
+    <button id="addThingBtn">Add Thing</button>
+    <br><br>
+    <button id="spinBtn">Spin!</button>
+    <canvas id="wheelCanvas" width="400" height="400"></canvas>
+    <h2 id="result"></h2>
+    <script>
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const spinBtn = document.getElementById('spinBtn');
+        const result = document.getElementById('result');
+        const thingsContainer = document.getElementById('thingsContainer');
+        const addThingBtn = document.getElementById('addThingBtn');
+
+        function createThingRow(name = '', weight = 1) {
+            const div = document.createElement('div');
+            div.className = 'thing-row';
+            div.innerHTML = `
+                <input class="thing-input" placeholder="Thing" value="${name}" />
+                <input class="weight-input" type="number" min="0.01" step="0.01" value="${weight}" />
+                <button class="removeBtn">Remove</button>
+            `;
+            div.querySelector('.removeBtn').onclick = () => {
+                div.remove();
+                drawWheel();
+            };
+            div.querySelector('.thing-input').oninput = drawWheel;
+            div.querySelector('.weight-input').oninput = drawWheel;
+            return div;
+        }
+
+        function getThingsAndWeights() {
+            const rows = thingsContainer.querySelectorAll('.thing-row');
+            const things = [];
+            const weights = [];
+            rows.forEach(row => {
+                const name = row.querySelector('.thing-input').value.trim();
+                const weight = parseFloat(row.querySelector('.weight-input').value);
+                if (name && !isNaN(weight) && weight > 0) {
+                    things.push(name);
+                    weights.push(weight);
+                }
+            });
+            return { things, weights };
+        }
+
+        function drawWheel() {
+            const { things, weights } = getThingsAndWeights();
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (things.length === 0) return;
+            const total = weights.reduce((a, b) => a + b, 0);
+            let startAngle = 0;
+            for (let i = 0; i < things.length; i++) {
+                const sliceAngle = 2 * Math.PI * (weights[i] / total);
+                ctx.beginPath();
+                ctx.moveTo(200, 200);
+                ctx.arc(200, 200, 180, startAngle, startAngle + sliceAngle);
+                ctx.closePath();
+                ctx.fillStyle = `hsl(${i * 360 / things.length}, 70%, 60%)`;
+                ctx.fill();
+                ctx.save();
+                ctx.translate(200, 200);
+                ctx.rotate(startAngle + sliceAngle / 2);
+                ctx.textAlign = "right";
+                ctx.fillStyle = "#222";
+                ctx.font = "18px Arial";
+                ctx.fillText(things[i], 170, 10);
+                ctx.restore();
+                startAngle += sliceAngle;
+            }
+            // Draw pointer
+            ctx.beginPath();
+            ctx.moveTo(200, 10);
+            ctx.lineTo(190, 40);
+            ctx.lineTo(210, 40);
+            ctx.closePath();
+            ctx.fillStyle = "#f00";
+            ctx.fill();
+        }
+
+        function spinWheel() {
+            const { things, weights } = getThingsAndWeights();
+            if (things.length === 0) return;
+            const total = weights.reduce((a, b) => a + b, 0);
+            // Pick winner based on weights
+            let r = Math.random() * total;
+            let acc = 0, winner = 0;
+            for (let i = 0; i < weights.length; i++) {
+                acc += weights[i];
+                if (r < acc) {
+                    winner = i;
+                    break;
+                }
+            }
+            // Animate spin
+            let totalAngle = 360 * 5 + (weights.slice(0, winner).reduce((a, b) => a + b, 0) + weights[winner]/2) * 360 / total;
+            let current = 0;
+            function animate() {
+                ctx.save();
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.translate(200, 200);
+                ctx.rotate(current * Math.PI / 180);
+                ctx.translate(-200, -200);
+                drawWheel();
+                ctx.restore();
+                if (current < totalAngle) {
+                    current += 20;
+                    requestAnimationFrame(animate);
+                } else {
+                    result.textContent = `Winner: ${things[winner]}`;
+                }
+            }
+            result.textContent = '';
+            animate();
+        }
+
+        spinBtn.onclick = spinWheel;
+        addThingBtn.onclick = () => {
+            thingsContainer.appendChild(createThingRow());
+            drawWheel();
+        };
+
+        // Initial rows
+        thingsContainer.appendChild(createThingRow('Pizza', 2));
+        thingsContainer.appendChild(createThingRow('Burger', 1));
+        thingsContainer.appendChild(createThingRow('Sushi', 1));
+        drawWheel();
+    </script>
+</body>
+</html>
